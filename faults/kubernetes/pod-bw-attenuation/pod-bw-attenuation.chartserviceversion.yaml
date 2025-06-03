@@ -33,9 +33,6 @@ spec:
   labels:
     app.kubernetes.io/component: chartserviceversion
     app.kubernetes.io/version: ci
-  links:
-    - name: Documentation
-      url: https://litmuschaos.github.io/litmus/experiments/categories/contents
   icon:
     - url:
       mediatype: ""
