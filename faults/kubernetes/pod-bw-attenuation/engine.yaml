@@ -1,0 +1,45 @@
+---
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: bandwidth-chaos
+  namespace: default
+spec:
+  appinfo:
+    appns: ''
+    applabel: ''
+    appkind: ''
+  engineState: 'active'
+  chaosServiceAccount: bandwidth-attenuation-sa
+  experiments:
+    - name: bandwidth-attenuation
+      spec:
+        components:
+          env:
+            # set chaos duration (in sec) as desired
+            - name: TOTAL_CHAOS_DURATION
+              value: '30'
+
+            # Bandwidth rate (e.g., 750kbps)
+            - name: BANDWIDTH_RATE
+              value: '750kbit'
+
+            # Bandwidth buffer size (e.g., 10kb)
+            - name: BUFFER_SIZE
+              value: '10kb'
+
+            # Bandwidth limit size (e.g., 20mb)
+            - name: LIMIT
+              value: '20mb'
+
+            # Label for source pod
+            - name: SOURCE_LABEL
+              value: 'app.kubernetes.io/instance=source-app'
+
+            # Label for destination pod
+            - name: DESTINATION_LABEL
+              value: 'app.kubernetes.io/instance=destination-app'
+
+            # Namespace of the pods
+            - name: NAMESPACE
+              value: 'default'

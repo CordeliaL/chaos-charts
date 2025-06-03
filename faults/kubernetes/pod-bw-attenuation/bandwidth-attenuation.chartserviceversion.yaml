@@ -1,0 +1,40 @@
+---
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChartServiceVersion
+metadata:
+  name: bandwidth-attenuation
+  version: 0.1.0
+  annotations:
+    categories: Kubernetes
+    vendor: LitmusChaos
+spec:
+  displayName: Bandwidth Attenuation
+  categoryDescription: |
+    Bandwidth attenuation fault disrupts the network between two pods or applications by applying traffic control (tc) rules to limit bandwidth.
+    - Causes bandwidth throttling between specified pods or applications.
+    - Tests the application's ability to handle network constraints and recover gracefully.
+  keywords:
+    - Kubernetes
+    - Network Chaos
+  platforms:
+    - GKE
+    - Konvoy
+    - Packet(Kubeadm)
+    - Minikube
+    - EKS
+    - AKS
+    - Kind
+    - Rancher
+    - OpenShift(OKD)
+  experiments:
+    - bandwidth-attenuation
+  minKubeVersion: 1.12.0
+  labels:
+    app.kubernetes.io/component: chartserviceversion
+    app.kubernetes.io/version: ci
+  links:
+    - name: Documentation
+      url: https://litmuschaos.github.io/litmus/experiments/categories/contents
+  icon:
+    - url:
+      mediatype: ""

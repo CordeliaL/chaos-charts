@@ -1,6 +1,9 @@
 ---
 packageName: kubernetes
 faults:
+  - name: pod-bw-attenuation
+    CSV: pod-bw-attenuation.chartserviceversion.yaml
+    desc: "pod-bw-attenuation"
   - name: pod-delete
     CSV: pod-delete.chartserviceversion.yaml
     desc: "pod-delete"

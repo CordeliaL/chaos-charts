@@ -1,0 +1,103 @@
+---
+apiVersion: litmuschaos.io/v1alpha1
+description:
+  message: |
+    Attenuates bandwidth between two pods by applying traffic control (tc) rules.
+kind: ChaosExperiment
+metadata:
+  name: bandwidth-attenuation
+  labels:
+    name: bandwidth-attenuation
+    app.kubernetes.io/part-of: litmus
+    app.kubernetes.io/component: chaosexperiment
+    app.kubernetes.io/version: ci
+spec:
+  definition:
+    scope: Namespaced
+    permissions:
+      # Create and monitor the experiment & helper pods
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs:
+          [
+            "create",
+            "delete",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "deletecollection",
+          ]
+      # Performs CRUD operations on the events inside chaosengine and chaosresult
+      - apiGroups: [""]
+        resources: ["events"]
+        verbs: ["create", "get", "list", "patch", "update"]
+      # Track and get the runner, experiment, and helper pods log
+      - apiGroups: [""]
+        resources: ["pods/log"]
+        verbs: ["get", "list", "watch"]
+      # for creating and managing to execute commands inside target container
+      - apiGroups: [""]
+        resources: ["pods/exec"]
+        verbs: ["get", "list", "create"]
+      # for configuring and monitor the experiment job by the chaos-runner pod
+      - apiGroups: ["batch"]
+        resources: ["jobs"]
+        verbs: ["create", "list", "get", "delete", "deletecollection"]
+      # for creation, status polling and deletion of litmus chaos resources used within a chaos workflow
+      - apiGroups: ["litmuschaos.io"]
+        resources: ["chaosengines", "chaosexperiments", "chaosresults"]
+        verbs: ["create", "list", "get", "patch", "update", "delete"]
+    image: "litmuschaos.docker.scarf.sh/litmuschaos/go-runner:latest"
+    imagePullPolicy: Always
+    args:
+      - -c
+      - |
+        #!/bin/bash
+        echo "Starting bandwidth attenuation chaos experiment"
+
+        # Get source and destination pod names
+        SOURCE_POD=$(kubectl get pod -l ${SOURCE_LABEL} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
+        DESTINATION_POD=$(kubectl get pod -l ${DESTINATION_LABEL} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
+
+        # Apply bandwidth attenuation using tc
+        kubectl exec -n ${NAMESPACE} ${SOURCE_POD} -- tc qdisc add dev eth0 root tbf rate ${BANDWIDTH_RATE} burst ${BUFFER_SIZE} limit ${LIMIT}
+        echo "Bandwidth attenuation applied to ${SOURCE_POD} targeting ${DESTINATION_POD}"
+
+        # Wait for the chaos duration
+        sleep ${TOTAL_CHAOS_DURATION}
+
+        # Remove bandwidth attenuation
+        kubectl exec -n ${NAMESPACE} ${SOURCE_POD} -- tc qdisc del dev eth0 root
+        echo "Bandwidth attenuation removed from ${SOURCE_POD}"
+
+        echo "Chaos experiment completed"
+    command:
+      - /bin/bash
+    env:
+      - name: TOTAL_CHAOS_DURATION
+        value: "15"
+
+      - name: BANDWIDTH_RATE
+        value: "750kbit"
+
+      - name: BUFFER_SIZE
+        value: "10kb"
+
+      - name: LIMIT
+        value: "20mb"
+
+      - name: SOURCE_LABEL
+        value: "app.kubernetes.io/instance=source-app"
+
+      - name: DESTINATION_LABEL
+        value: "app.kubernetes.io/instance=destination-app"
+
+      - name: NAMESPACE
+        value: "default"
+
+    labels:
+      name: bandwidth-attenuation
+      app.kubernetes.io/part-of: litmus
+      app.kubernetes.io/component: experiment-job
+      app.kubernetes.io/version: ci
