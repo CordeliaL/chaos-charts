@@ -5,9 +5,9 @@ description:
     Attenuates bandwidth between two pods by applying traffic control (tc) rules.
 kind: ChaosExperiment
 metadata:
-  name: bandwidth-attenuation
+  name: pod-bw-attenuation
   labels:
-    name: bandwidth-attenuation
+    name: pod-bw-attenuation
     app.kubernetes.io/part-of: litmus
     app.kubernetes.io/component: chaosexperiment
     app.kubernetes.io/version: ci
@@ -97,7 +97,7 @@ spec:
         value: "default"
 
     labels:
-      name: bandwidth-attenuation
+      name: pod-bw-attenuation
       app.kubernetes.io/part-of: litmus
       app.kubernetes.io/component: experiment-job
       app.kubernetes.io/version: ci
