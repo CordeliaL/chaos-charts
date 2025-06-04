@@ -48,7 +48,7 @@ spec:
       - apiGroups: ["litmuschaos.io"]
         resources: ["chaosengines", "chaosexperiments", "chaosresults"]
         verbs: ["create", "list", "get", "patch", "update", "delete"]
-    image: "litmuschaos.docker.scarf.sh/litmuschaos/go-runner:latest"
+    image: "litmuschaos.docker.scarf.sh/litmuschaos/go-runner:3.0.0"
     imagePullPolicy: Always
     args:
       - -c
@@ -56,20 +56,48 @@ spec:
         #!/bin/bash
         echo "Starting bandwidth attenuation chaos experiment"
 
-        # Get source and destination pod names
         SOURCE_POD=$(kubectl get pod -l ${SOURCE_LABEL} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
         DESTINATION_POD=$(kubectl get pod -l ${DESTINATION_LABEL} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
 
-        # Apply bandwidth attenuation using tc
-        kubectl exec -n ${NAMESPACE} ${SOURCE_POD} -- tc qdisc add dev eth0 root tbf rate ${BANDWIDTH_RATE} burst ${BUFFER_SIZE} limit ${LIMIT}
-        echo "Bandwidth attenuation applied to ${SOURCE_POD} targeting ${DESTINATION_POD}"
+        # Create a helper pod to apply traffic control rules
+        cat <<EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: tc-helper
+          namespace: ${NAMESPACE}
+          labels:
+            app: tc-helper
+        spec:
+          containers:
+          - name: tc-helper
+            image: busybox
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Applying bandwidth attenuation using tc"
 
-        # Wait for the chaos duration
+              SOURCE_IP=$(kubectl get pod ${SOURCE_POD} -n ${NAMESPACE} -o jsonpath='{.status.podIP}')
+              DESTINATION_IP=$(kubectl get pod ${DESTINATION_POD} -n ${NAMESPACE} -o jsonpath='{.status.podIP}')
+
+              tc qdisc add dev eth0 root handle 1: htb default 11
+              tc class add dev eth0 parent 1: classid 1:1 htb rate ${BANDWIDTH_RATE}
+              tc filter add dev eth0 protocol ip parent 1:0 prio 1 u32 match ip dst ${DESTINATION_IP} flowid 1:1
+              
+              sleep ${TOTAL_CHAOS_DURATION}
+
+              echo "Removing bandwidth attenuation"
+              tc qdisc del dev eth0 root
+              echo "Bandwidth attenuation completed"
+            securityContext:
+              privileged: true
+          restartPolicy: Never
+        EOF
+
         sleep ${TOTAL_CHAOS_DURATION}
 
-        # Remove bandwidth attenuation
-        kubectl exec -n ${NAMESPACE} ${SOURCE_POD} -- tc qdisc del dev eth0 root
-        echo "Bandwidth attenuation removed from ${SOURCE_POD}"
+        kubectl delete pod tc-helper -n ${NAMESPACE}
 
         echo "Chaos experiment completed"
     command:
@@ -100,4 +128,4 @@ spec:
       name: pod-bw-attenuation
       app.kubernetes.io/part-of: litmus
       app.kubernetes.io/component: experiment-job
-      app.kubernetes.io/version: ci
+      app.kubernetes.io/version: 3.0.0
