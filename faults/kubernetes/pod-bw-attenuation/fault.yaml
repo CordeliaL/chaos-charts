@@ -56,8 +56,14 @@ spec:
         #!/bin/bash
         echo "Starting bandwidth attenuation chaos experiment"
 
-        SOURCE_POD=$(kubectl get pod -l ${SOURCE_LABEL} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
-        DESTINATION_POD=$(kubectl get pod -l ${DESTINATION_LABEL} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
+        SERVICE_IP=$(kubectl get svc ${SERVICE_NAME} -n ${NAMESPACE} -o jsonpath='{.spec.clusterIP}')
+
+        if [ -z "$SERVICE_IP" ]; then
+          echo "Service IP not found for ${SERVICE_NAME} in namespace ${NAMESPACE}"
+          exit 1
+        fi
+
+        echo "Service IP is: $SERVICE_IP"
 
         # Create a helper pod to apply traffic control rules
         cat <<EOF | kubectl apply -f -
@@ -82,8 +88,8 @@ spec:
               DESTINATION_IP=$(kubectl get pod ${DESTINATION_POD} -n ${NAMESPACE} -o jsonpath='{.status.podIP}')
 
               tc qdisc add dev eth0 root handle 1: htb default 11
-              tc class add dev eth0 parent 1: classid 1:1 htb rate ${BANDWIDTH_RATE}
-              tc filter add dev eth0 protocol ip parent 1:0 prio 1 u32 match ip dst ${DESTINATION_IP} flowid 1:1
+              tc class add dev eth0 parent 1: classid 1:1 htb rate ${BANDWIDTH_RATE} burst ${BUFFER_SIZE} limit ${LIMIT}
+              tc filter add dev eth0 protocol ip parent 1:0 prio 1 u32 match ip dst ${SERVICE_IP} flowid 1:1
               
               sleep ${TOTAL_CHAOS_DURATION}
 
@@ -115,11 +121,8 @@ spec:
       - name: LIMIT
         value: "20mb"
 
-      - name: SOURCE_LABEL
-        value: "app.kubernetes.io/instance=source-app"
-
-      - name: DESTINATION_LABEL
-        value: "app.kubernetes.io/instance=destination-app"
+      - name: SERVICE_NAME
+        value: "tocl1-to-cbc2-mirrormaker2"
 
       - name: NAMESPACE
         value: "default"
